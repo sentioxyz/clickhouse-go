@@ -20,6 +20,10 @@ require (
 	golang.org/x/net v0.49.0
 )
 
+// use forked ch-go with JWS signing and Decimal512 support
+// https://github.com/sentioxyz/ch-go
+replace github.com/ClickHouse/ch-go => github.com/sentioxyz/ch-go v0.71.0-sentioxyz
+
 require go.opentelemetry.io/otel v1.39.0 // indirect
 
 require (
