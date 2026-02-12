@@ -63,7 +63,7 @@ func (c *connect) resolveSigningKey(o *QueryOptions) *ecdsa.PrivateKey {
 	if o.signingKey != nil {
 		return o.signingKey
 	}
-	return c.opt.SigningKey
+	return c.opt.signingKeyParsed
 }
 
 func parametersToProtoParameters(parameters Parameters) (s proto.Parameters) {

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/ClickHouse/ch-go/compress"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 type CompressionMethod byte
@@ -170,11 +171,15 @@ type Options struct {
 	// Use this instead of Auth.Username and Auth.Password if you're using JWT auth.
 	GetJWT GetJWTFunc
 
-	// SigningKey is an ECDSA private key (secp256k1) used to sign queries with JWS tokens.
+	// SigningKey is the hex-encoded ECDSA secp256k1 private key for signing queries.
 	// When set, all queries sent via the native TCP protocol will include
 	// a SQL_x_auth_token setting containing the JWS signature.
+	// The key should be a hex string without the "0x" prefix.
 	// Can be overridden per-query using WithSigningKey in the context.
-	SigningKey *ecdsa.PrivateKey
+	SigningKey string
+
+	// signingKeyParsed is the parsed private key, set during setDefaults.
+	signingKeyParsed *ecdsa.PrivateKey
 
 	scheme string
 
@@ -426,6 +431,14 @@ func (o Options) setDefaults() *Options {
 		case HTTP:
 			o.Addr = []string{"localhost:8123"}
 		}
+	}
+	if o.SigningKey != "" && o.signingKeyParsed == nil {
+		key := strings.TrimPrefix(o.SigningKey, "0x")
+		parsedKey, err := crypto.HexToECDSA(key)
+		if err != nil {
+			return nil
+		}
+		o.signingKeyParsed = parsedKey
 	}
 	return &o
 }

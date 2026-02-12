@@ -5,9 +5,11 @@ import (
 	"crypto/ecdsa"
 	"maps"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/ext"
+	"github.com/ethereum/go-ethereum/crypto"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -194,9 +196,15 @@ func WithUserLocation(location *time.Location) QueryOption {
 // WithSigningKey sets an ECDSA private key (secp256k1) for signing this query.
 // Overrides any signing key set at the connection level in Options.SigningKey.
 // The query body will be signed with a JWS token and sent as the SQL_x_auth_token setting.
-func WithSigningKey(key *ecdsa.PrivateKey) QueryOption {
+// The key should be a hex string, optionally with "0x" prefix.
+func WithSigningKey(keyHex string) QueryOption {
 	return func(o *QueryOptions) error {
-		o.signingKey = key
+		hex := strings.TrimPrefix(keyHex, "0x")
+		parsedKey, err := crypto.HexToECDSA(hex)
+		if err != nil {
+			return err
+		}
+		o.signingKey = parsedKey
 		return nil
 	}
 }

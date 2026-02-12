@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -131,35 +132,49 @@ func TestSignQuery_DifferentKeys(t *testing.T) {
 	assert.NotEqual(t, sig1, sig2)
 }
 
+func keyToHex(key *ecdsa.PrivateKey) string {
+	return fmt.Sprintf("%x", crypto.FromECDSA(key))
+}
+
 func TestResolveSigningKey_ContextOverridesConnection(t *testing.T) {
 	connKey := generateTestKey(t)
 	ctxKey := generateTestKey(t)
 
+	opts := Options{
+		SigningKey: keyToHex(connKey),
+	}
+	parsedOpts := opts.setDefaults()
+
 	c := &connect{
-		opt: &Options{
-			SigningKey: connKey,
-		},
+		opt: parsedOpts,
 	}
 
 	// Context key should take precedence
-	opts := &QueryOptions{signingKey: ctxKey}
-	resolved := c.resolveSigningKey(opts)
+	qopts := &QueryOptions{signingKey: ctxKey}
+	resolved := c.resolveSigningKey(qopts)
 	assert.Equal(t, ctxKey, resolved)
 }
 
 func TestResolveSigningKey_FallbackToConnection(t *testing.T) {
 	connKey := generateTestKey(t)
 
+	opts := Options{
+		SigningKey: keyToHex(connKey),
+	}
+	parsedOpts := opts.setDefaults()
+
 	c := &connect{
-		opt: &Options{
-			SigningKey: connKey,
-		},
+		opt: parsedOpts,
 	}
 
 	// No context key → fall back to connection key
-	opts := &QueryOptions{}
-	resolved := c.resolveSigningKey(opts)
-	assert.Equal(t, connKey, resolved)
+	qopts := &QueryOptions{}
+	resolved := c.resolveSigningKey(qopts)
+	assert.NotNil(t, resolved)
+	// Compare addresses to verify it's the same key
+	expectedAddr := crypto.PubkeyToAddress(connKey.PublicKey).Hex()
+	resolvedAddr := crypto.PubkeyToAddress(resolved.PublicKey).Hex()
+	assert.Equal(t, expectedAddr, resolvedAddr)
 }
 
 func TestResolveSigningKey_NilWhenNoKey(t *testing.T) {
