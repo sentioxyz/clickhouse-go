@@ -169,6 +169,12 @@ type Options struct {
 	// Use this instead of Auth.Username and Auth.Password if you're using JWT auth.
 	GetJWT GetJWTFunc
 
+	// SignFunc is a callback that signs a query body and returns a token string.
+	// When set, all queries sent via the native TCP protocol will include
+	// a SQL_x_auth_token setting containing the returned token.
+	// Can be overridden per-query using WithSignFunc in the context.
+	SignFunc func(queryBody string) (token string, err error)
+
 	scheme string
 
 	// ReadTimeout is the maximum duration the client will wait for ClickHouse
