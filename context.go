@@ -40,12 +40,13 @@ type (
 		wait bool
 	}
 	QueryOptions struct {
-		span     trace.SpanContext
-		async    AsyncOptions
-		queryID  string
-		quotaKey string
-		jwt      string
-		events   struct {
+		span       trace.SpanContext
+		async      AsyncOptions
+		queryID    string
+		quotaKey   string
+		jwt        string
+		signFunc func(queryBody string) (token string, err error)
+		events     struct {
 			logs          func(*Log)
 			progress      func(*Progress)
 			profileInfo   func(*ProfileInfo)
@@ -190,6 +191,17 @@ func WithUserLocation(location *time.Location) QueryOption {
 	}
 }
 
+// WithSignFunc sets a callback function for signing queries.
+// Overrides any sign function set at the connection level in Options.SignFunc.
+// The callback receives the query body and should return a token string
+// (e.g. a JWS token) that will be sent as the SQL_x_auth_token setting.
+func WithSignFunc(signFunc func(queryBody string) (token string, err error)) QueryOption {
+	return func(o *QueryOptions) error {
+		o.signFunc = signFunc
+		return nil
+	}
+}
+
 func ignoreExternalTables() QueryOption {
 	return func(o *QueryOptions) error {
 		o.external = nil
@@ -313,6 +325,7 @@ func (q *QueryOptions) clone() QueryOptions {
 		queryID:             q.queryID,
 		quotaKey:            q.quotaKey,
 		jwt:                 q.jwt,
+		signFunc:            q.signFunc,
 		events:              q.events,
 		settings:            nil,
 		parameters:          nil,

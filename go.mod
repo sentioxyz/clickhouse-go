@@ -73,3 +73,7 @@ require (
 	golang.org/x/sys v0.47.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+// use forked ch-go with Decimal512 support
+// https://github.com/sentioxyz/ch-go
+replace github.com/ClickHouse/ch-go => github.com/sentioxyz/ch-go v0.71.0-sentioxyz-20260225
