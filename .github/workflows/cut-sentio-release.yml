@@ -1,4 +1,4 @@
-name: Cut Sentio release tag
+name: Cut Sentio release
 
 on:
   workflow_dispatch:
@@ -84,6 +84,7 @@ jobs:
       - name: Validate release tag
         id: validate
         env:
+          GH_TOKEN: ${{ github.token }}
           OFFICIAL_TAG: ${{ steps.inputs.outputs.official_tag }}
           SENTIO_TAG: ${{ steps.inputs.outputs.sentio_tag }}
         run: |
@@ -113,6 +114,11 @@ jobs:
             exit 1
           fi
 
+          if gh release view "${SENTIO_TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "::error::GitHub Release ${SENTIO_TAG} already exists"
+            exit 1
+          fi
+
           head_sha="$(git rev-parse HEAD)"
           official_sha="$(git rev-list -n 1 "${OFFICIAL_TAG}")"
 
@@ -122,18 +128,40 @@ jobs:
             echo "patch_count=${patch_count}"
           } >> "${GITHUB_OUTPUT}"
 
-      - name: Create and push tag
+      - name: Create GitHub Release and tag
+        id: release
         if: ${{ !inputs.dry_run }}
         env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ steps.validate.outputs.head_sha }}
+          OFFICIAL_SHA: ${{ steps.validate.outputs.official_sha }}
           OFFICIAL_TAG: ${{ steps.inputs.outputs.official_tag }}
+          PATCH_COUNT: ${{ steps.validate.outputs.patch_count }}
+          RELEASE_BRANCH: ${{ steps.inputs.outputs.release_branch }}
           SENTIO_TAG: ${{ steps.inputs.outputs.sentio_tag }}
         run: |
           set -euo pipefail
 
-          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git tag -a "${SENTIO_TAG}" HEAD -m "Sentio clickhouse-go ${SENTIO_TAG} based on ${OFFICIAL_TAG}"
-          git push origin "refs/tags/${SENTIO_TAG}"
+          notes_file="$(mktemp)"
+          trap 'rm -f "${notes_file}"' EXIT
+          cat > "${notes_file}" <<EOF
+          Sentio clickhouse-go ${SENTIO_TAG}
+
+          - Based on official ClickHouse clickhouse-go ${OFFICIAL_TAG}
+          - Official commit: ${OFFICIAL_SHA}
+          - Release branch: ${RELEASE_BRANCH}
+          - Release commit: ${HEAD_SHA}
+          - Sentio commits on top: ${PATCH_COUNT}
+          EOF
+
+          gh release create "${SENTIO_TAG}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --target "${HEAD_SHA}" \
+            --title "${SENTIO_TAG}" \
+            --notes-file "${notes_file}"
+
+          release_url="$(gh release view "${SENTIO_TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq .url)"
+          echo "release_url=${release_url}" >> "${GITHUB_OUTPUT}"
 
       - name: Write summary
         if: always()
@@ -143,6 +171,7 @@ jobs:
           OFFICIAL_SHA: ${{ steps.validate.outputs.official_sha }}
           OFFICIAL_TAG: ${{ steps.inputs.outputs.official_tag }}
           PATCH_COUNT: ${{ steps.validate.outputs.patch_count }}
+          RELEASE_URL: ${{ steps.release.outputs.release_url }}
           RELEASE_BRANCH: ${{ steps.inputs.outputs.release_branch }}
           SENTIO_TAG: ${{ steps.inputs.outputs.sentio_tag }}
         run: |
@@ -156,6 +185,7 @@ jobs:
             echo "- Release branch: \`${RELEASE_BRANCH}\`"
             echo "- Release HEAD: \`${HEAD_SHA:-not validated}\`"
             echo "- Sentio tag: \`${SENTIO_TAG}\`"
+            echo "- GitHub Release: ${RELEASE_URL:-not created}"
             echo "- Commits on top: \`${PATCH_COUNT:-not validated}\`"
             echo "- Dry run: \`${DRY_RUN}\`"
           } >> "${GITHUB_STEP_SUMMARY}"
