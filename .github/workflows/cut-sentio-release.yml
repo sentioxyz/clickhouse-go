@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       date_suffix:
-        description: "Optional YYYYMMDD suffix. Defaults to the UTC run date."
+        description: "Optional release suffix. Defaults to UTC YYYYMMDD. Use YYYYMMDD.1 for same-day respins."
         required: false
         type: string
       branch:
@@ -62,8 +62,8 @@ jobs:
           if [[ -z "${date_suffix}" ]]; then
             date_suffix="$(date -u +%Y%m%d)"
           fi
-          if [[ ! "${date_suffix}" =~ ^[0-9]{8}$ ]]; then
-            echo "::error::date_suffix must use YYYYMMDD format"
+          if [[ ! "${date_suffix}" =~ ^[0-9]{8}([.-][0-9A-Za-z]+)*$ ]]; then
+            echo "::error::date_suffix must use YYYYMMDD or a respin suffix such as YYYYMMDD.1"
             exit 1
           fi
 
@@ -105,17 +105,17 @@ jobs:
           fi
 
           if git rev-parse -q --verify "refs/tags/${SENTIO_TAG}" >/dev/null; then
-            echo "::error::local tag ${SENTIO_TAG} already exists"
+            echo "::error::tag ${SENTIO_TAG} already exists in this checkout; use a new date_suffix such as $(date -u +%Y%m%d).1 for a same-day respin"
             exit 1
           fi
 
           if git ls-remote --exit-code --tags origin "refs/tags/${SENTIO_TAG}" >/dev/null 2>&1; then
-            echo "::error::remote tag ${SENTIO_TAG} already exists"
+            echo "::error::remote tag ${SENTIO_TAG} already exists; use a new date_suffix such as $(date -u +%Y%m%d).1 for a same-day respin"
             exit 1
           fi
 
           if gh release view "${SENTIO_TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
-            echo "::error::GitHub Release ${SENTIO_TAG} already exists"
+            echo "::error::GitHub Release ${SENTIO_TAG} already exists; use a new date_suffix such as $(date -u +%Y%m%d).1 for a same-day respin"
             exit 1
           fi
 
