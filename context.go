@@ -40,13 +40,13 @@ type (
 		wait bool
 	}
 	QueryOptions struct {
-		span       trace.SpanContext
-		async      AsyncOptions
-		queryID    string
-		quotaKey   string
-		jwt        string
+		span     trace.SpanContext
+		async    AsyncOptions
+		queryID  string
+		quotaKey string
+		jwt      string
 		signFunc func(queryBody string) (token string, err error)
-		events     struct {
+		events   struct {
 			logs          func(*Log)
 			progress      func(*Progress)
 			profileInfo   func(*ProfileInfo)
