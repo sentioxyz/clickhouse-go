@@ -41,7 +41,17 @@ var randSeed = time.Now().UnixNano()
 const defaultClickHouseVersion = "latest"
 
 func GetClickHouseTestVersion() string {
-	return GetEnv("CLICKHOUSE_VERSION", defaultClickHouseVersion)
+	if version := os.Getenv("CLICKHOUSE_VERSION"); version != "" {
+		return version
+	}
+	return defaultClickHouseVersion
+}
+
+func GetClickHouseTestImage() string {
+	if image := os.Getenv("CLICKHOUSE_IMAGE"); image != "" {
+		return image
+	}
+	return fmt.Sprintf("clickhouse/clickhouse-server:%s", GetClickHouseTestVersion())
 }
 
 type ClickHouseTestEnvironment struct {
@@ -237,7 +247,7 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 	containerName := fmt.Sprintf("clickhouse-go-%x", md5.Sum(buf.Bytes()))
 
 	req := testcontainers.ContainerRequest{
-		Image:           fmt.Sprintf("clickhouse/clickhouse-server:%s", GetClickHouseTestVersion()),
+		Image:           GetClickHouseTestImage(),
 		AlwaysPullImage: true,
 		Name:            containerName,
 		ExposedPorts:    []string{"9000/tcp", "8123/tcp", "9440/tcp", "8443/tcp"},
