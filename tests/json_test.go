@@ -5,20 +5,28 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	"github.com/stretchr/testify/require"
 )
 
 func setupJSONTest(t *testing.T, protocol clickhouse.Protocol) driver.Conn {
 	SkipOnCloud(t, "cannot modify JSON settings on cloud")
 
-	conn, err := GetNativeConnection(t, protocol, clickhouse.Settings{
+	settings := clickhouse.Settings{
 		"max_execution_time":              60,
 		"allow_experimental_variant_type": true,
 		"allow_experimental_dynamic_type": true,
 		"allow_experimental_json_type":    true,
-	}, nil, &clickhouse.Compression{
+	}
+	// Some JSON tests issue `SET ...` and rely on it persisting across requests; over HTTP that
+	// needs a session (native uses the stateful connection). These tests are SkipOnCloud, so the
+	// session carries no Cloud session-lock risk.
+	if protocol == clickhouse.HTTP {
+		settings["session_id"] = t.Name()
+	}
+	conn, err := GetNativeConnection(t, protocol, settings, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	require.NoError(t, err)
@@ -220,13 +228,13 @@ func TestJSONStruct(t *testing.T) {
 		inputRow2 := TestStruct{
 			KeysNumbers: map[string]int64{},
 			Timestamp:   JSONTestDate,
-			Metadata: map[string]interface{}{
+			Metadata: map[string]any{
 				"FieldA": "a",
 				"FieldB": "b",
-				"FieldC": map[string]interface{}{
+				"FieldC": map[string]any{
 					"FieldD": int64(5),
 				},
-				"FieldE": map[string]interface{}{
+				"FieldE": map[string]any{
 					"FieldF": "f",
 				},
 			},
@@ -243,10 +251,6 @@ func TestJSONStruct(t *testing.T) {
 		require.True(t, rows.Next())
 		err = rows.Scan(&row)
 		require.NoError(t, err)
-		// The second row adds a nil value at this path. Update the inputRow for easier deep equal check
-		inputRow.Metadata["FieldE"] = map[string]interface{}{
-			"FieldF": nil,
-		}
 		require.Equal(t, inputRow, row)
 
 		var row2 TestStruct
@@ -519,6 +523,49 @@ func TestJSONNullableObjectScan(t *testing.T) {
 
 		require.NoError(t, rows.Close())
 		require.NoError(t, rows.Err())
+	})
+}
+
+func TestJSONNullableObjectViaPointer(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn := setupJSONTest(t, protocol)
+
+		if !CheckMinServerServerVersion(conn, 25, 2, 0) {
+			t.Skip("Nullable(JSON) unsupported")
+		}
+
+		ctx := context.Background()
+
+		rowsJson, err := conn.Query(ctx, `SELECT '{"x": "test"}'::Nullable(JSON)`)
+		require.NoError(t, err)
+
+		require.True(t, rowsJson.Next())
+		require.Len(t, rowsJson.ColumnTypes(), 1)
+		require.Equal(t, "Nullable(JSON)", rowsJson.ColumnTypes()[0].DatabaseTypeName())
+
+		var rowJson *clickhouse.JSON
+		err = rowsJson.Scan(&rowJson)
+		require.NoError(t, err)
+
+		xStr, ok := clickhouse.ExtractJSONPathAs[string](rowJson, "x")
+		require.True(t, ok)
+		require.Equal(t, "test", xStr)
+
+		require.NoError(t, rowsJson.Close())
+		require.NoError(t, rowsJson.Err())
+
+		// Test for the null case
+		rowsWithNull, err := conn.Query(ctx, `SELECT NULL::Nullable(JSON)`)
+		require.NoError(t, err)
+
+		require.True(t, rowsWithNull.Next())
+		var rowWithNull *clickhouse.JSON
+		err = rowsWithNull.Scan(&rowWithNull)
+		require.NoError(t, err)
+		require.Nil(t, rowWithNull)
+
+		require.NoError(t, rowsWithNull.Close())
+		require.NoError(t, rowsWithNull.Err())
 	})
 }
 
