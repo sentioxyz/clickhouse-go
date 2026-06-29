@@ -41,7 +41,7 @@ func TestStdDecimal512(t *testing.T) {
 			require.NoError(t, err)
 			batch, err := scope.Prepare("INSERT INTO std_test_decimal512")
 			require.NoError(t, err)
-			
+
 			val1 := decimal.RequireFromString("12345678901234567890.1234567890")
 			val2 := decimal.RequireFromString("98765432109876543210.98765432109876543210")
 			val3 := decimal.RequireFromString("55555555555555555555.555555555555555")
@@ -49,11 +49,11 @@ func TestStdDecimal512(t *testing.T) {
 				decimal.RequireFromString("111.222333444555"),
 				decimal.RequireFromString("666.777888999000"),
 			}
-			
+
 			_, err = batch.Exec(val1, val2, val3, arrayVals)
 			require.NoError(t, err)
 			require.NoError(t, scope.Commit())
-			
+
 			var (
 				col1 decimal.Decimal
 				col2 decimal.Decimal
@@ -64,7 +64,7 @@ func TestStdDecimal512(t *testing.T) {
 			require.NoError(t, err)
 			columnTypes, err := rows.ColumnTypes()
 			require.NoError(t, err)
-			
+
 			// Verify column metadata
 			for i, column := range columnTypes {
 				switch i {
@@ -101,11 +101,11 @@ func TestStdDecimal512(t *testing.T) {
 					assert.True(t, nullableOk)
 				}
 			}
-			
+
 			for rows.Next() {
 				err := rows.Scan(&col1, &col2, &col3, &col4)
 				require.NoError(t, err)
-				
+
 				assert.True(t, val1.Equal(col1), "Col1: expected %v, got %v", val1, col1)
 				assert.True(t, val2.Equal(col2), "Col2: expected %v, got %v", val2, col2)
 				assert.True(t, val3.Equal(col3), "Col3: expected %v, got %v", val3, col3)
@@ -140,34 +140,34 @@ func TestStdDecimal512Nullable(t *testing.T) {
 			}()
 			_, err = conn.Exec(ddl)
 			require.NoError(t, err)
-			
+
 			scope, err := conn.Begin()
 			require.NoError(t, err)
 			batch, err := scope.Prepare("INSERT INTO std_test_decimal512_nullable")
 			require.NoError(t, err)
-			
+
 			val := decimal.RequireFromString("123456789.98765432101234567890")
-			
+
 			// Insert non-null value
 			_, err = batch.Exec(val)
 			require.NoError(t, err)
-			
+
 			// Insert null value
 			_, err = batch.Exec(nil)
 			require.NoError(t, err)
-			
+
 			require.NoError(t, scope.Commit())
-			
+
 			rows, err := conn.Query("SELECT * FROM std_test_decimal512_nullable ORDER BY Col1 NULLS LAST")
 			require.NoError(t, err)
-			
+
 			rowCount := 0
 			for rows.Next() {
 				var col1 *decimal.Decimal
 				err := rows.Scan(&col1)
 				require.NoError(t, err)
 				rowCount++
-				
+
 				switch rowCount {
 				case 1:
 					require.NotNil(t, col1)
@@ -204,31 +204,30 @@ func TestStdDecimal512StringInput(t *testing.T) {
 			}()
 			_, err = conn.Exec(ddl)
 			require.NoError(t, err)
-			
+
 			scope, err := conn.Begin()
 			require.NoError(t, err)
 			batch, err := scope.Prepare("INSERT INTO std_test_decimal512_string")
 			require.NoError(t, err)
-			
+
 			// Test with string input
 			strValue := "9876543210.9876543210987654321012345"
 			_, err = batch.Exec(strValue)
 			require.NoError(t, err)
 			require.NoError(t, scope.Commit())
-			
+
 			var result decimal.Decimal
 			rows, err := conn.Query("SELECT * FROM std_test_decimal512_string")
 			require.NoError(t, err)
-			
+
 			for rows.Next() {
 				err := rows.Scan(&result)
 				require.NoError(t, err)
 			}
 			require.NoError(t, rows.Err())
-			
+
 			expected := decimal.RequireFromString(strValue)
 			assert.True(t, expected.Equal(result), "expected %v, got %v", expected, result)
 		})
 	}
 }
-
