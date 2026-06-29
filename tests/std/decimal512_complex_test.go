@@ -50,15 +50,18 @@ func TestStdDecimal512Tuple(t *testing.T) {
 
 			rows, err := conn.Query("SELECT * FROM std_test_decimal512_tuple")
 			require.NoError(t, err)
+			defer rows.Close()
 
 			for rows.Next() {
-				var result []any
+				var result map[string]any
 				err := rows.Scan(&result)
 				require.NoError(t, err)
 				require.Len(t, result, 2)
 
-				assert.Equal(t, uint32(123), result[0])
-				assert.True(t, val.Equal(result[1].(decimal.Decimal)))
+				assert.Equal(t, uint32(123), result["id"])
+				amount, ok := result["amount"].(decimal.Decimal)
+				require.True(t, ok)
+				assert.True(t, val.Equal(amount))
 			}
 			require.NoError(t, rows.Err())
 		})
