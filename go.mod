@@ -76,4 +76,4 @@ require (
 
 // use forked ch-go with Decimal512 support
 // https://github.com/sentioxyz/ch-go
-replace github.com/ClickHouse/ch-go => github.com/sentioxyz/ch-go v0.71.0-sentioxyz-20260225
+replace github.com/ClickHouse/ch-go => github.com/sentioxyz/ch-go v0.74.0-sentioxyz-20260806
