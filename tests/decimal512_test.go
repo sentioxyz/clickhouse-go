@@ -113,17 +113,17 @@ func TestNegativeDecimal512(t *testing.T) {
 
 			switch rowCount {
 			case 1:
-				require.Nil(t, col1)
-				require.NotNil(t, col2)
-				require.NotNil(t, col3)
-				assert.True(t, val2.Equal(*col2))
-				assert.True(t, val1.Equal(*col3))
-			case 2:
 				require.NotNil(t, col1)
 				require.NotNil(t, col2)
 				require.Nil(t, col3)
 				assert.True(t, val1.Equal(*col1))
 				assert.True(t, val2.Equal(*col2))
+			case 2:
+				require.Nil(t, col1)
+				require.NotNil(t, col2)
+				require.NotNil(t, col3)
+				assert.True(t, val2.Equal(*col2))
+				assert.True(t, val1.Equal(*col3))
 			}
 		}
 		assert.Equal(t, 2, rowCount)
