@@ -3,7 +3,8 @@ name: Relay bugs for cross-repo investigation
 # Relays newly-opened issues to ClickHouse/integrations-ai-playground for cross-repo investigation.
 
 on:
-  workflow_dispatch:
+  issues:
+    types: [opened]
 
 permissions: {}
 
