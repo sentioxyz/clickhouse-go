@@ -318,15 +318,11 @@ func (col *Decimal) append(v *decimal.Decimal) error {
 			},
 		})
 	case *proto.ColDecimal512:
-		var bi *big.Int
-		bi = decimal.NewFromBigInt(v.Coefficient(), v.Exponent()+int32(col.scale)).BigInt()
-		// Decimal512 最多支持 512 位（64 字节）
-		if bi.BitLen() > 512 {
-			return fmt.Errorf("decimal value exceeds Decimal512 capacity: %d bits > 512 bits (precision=%d, scale=%d)",
-				bi.BitLen(), col.precision, col.scale)
-		}
+		bi := decimal.NewFromBigInt(v.Coefficient(), v.Exponent()+int32(col.scale)).BigInt()
 		dest := make([]byte, 64)
-		bigIntToRaw(dest, bi)
+		if err := bigIntToRaw(dest, bi, true); err != nil {
+			return fmt.Errorf("value %s overflows Decimal512 (%s): %w", v.String(), col.chType, err)
+		}
 		vCol.Append(proto.Decimal512{
 			Low: proto.UInt256{
 				Low: proto.UInt128{
